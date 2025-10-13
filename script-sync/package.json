@@ -1,0 +1,17 @@
+{
+  "name": "nimat-sync-productos",
+  "version": "1.0.0",
+  "description": "Sincronizador de productos para chatbot NIMAT",
+  "main": "sync-productos.js",
+  "scripts": {
+    "start": "node sync-productos.js",
+    "dev": "nodemon sync-productos.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "dropbox": "^10.34.0",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

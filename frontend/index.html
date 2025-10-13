@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <!-- WIDGET CHATBOT NIMAT -->
+<div id="nimat-chat"></div>
+
+<style>
+#nimat-chat { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+.chat-btn { width: 60px; height: 60px; background: linear-gradient(135deg, #10b981, #059669); 
+  border-radius: 50%; border: none; font-size: 28px; cursor: pointer; 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.chat-window { width: 380px; height: 600px; background: white; border-radius: 16px; 
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+.chat-header { background: linear-gradient(135deg, #10b981, #059669); 
+  color: white; padding: 16px; border-radius: 16px 16px 0 0; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; background: #f9fafb; }
+.mensaje { margin-bottom: 12px; display: flex; }
+.mensaje.usuario { justify-content: flex-end; }
+.mensaje-texto { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; }
+.usuario .mensaje-texto { background: #10b981; color: white; }
+.bot .mensaje-texto { background: white; color: #374151; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.chat-input { display: flex; padding: 12px; background: white; border-top: 1px solid #e5e7eb; }
+.chat-input input { flex: 1; padding: 10px; border: 1px solid #d1d5db; 
+  border-radius: 20px; font-size: 14px; outline: none; }
+.chat-input button { background: #10b981; color: white; border: none; 
+  width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; cursor: pointer; }
+</style>
+
+<script>
+const API_URL = 'https://tu-url.railway.app';
+let abierto = false;
+let mensajes = [{ rol: 'bot', texto: '¡Hola! Soy el asistente de NIMAT. ¿En qué puedo ayudarte?' }];
+
+function render() {
+  const root = document.getElementById('nimat-chat');
+  if (!abierto) {
+    root.innerHTML = '<button class="chat-btn" onclick="toggle()">💬</button>';
+    return;
+  }
+  
+  root.innerHTML = `
+    <div class="chat-window">
+      <div class="chat-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><h3 style="margin:0">NIMAT</h3><p style="margin:0;font-size:12px">En línea</p></div>
+          <button onclick="toggle()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      <div class="chat-messages" id="msgs">
+        ${mensajes.map(m => `
+          <div class="mensaje ${m.rol}">
+            <div class="mensaje-texto">${m.texto}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="chat-input">
+        <input id="input" placeholder="Escribe aquí..." 
+               onkeypress="if(event.key==='Enter')enviar()">
+        <button onclick="enviar()">➤</button>
+      </div>
+    </div>
+  `;
+}
+
+function toggle() { abierto = !abierto; render(); }
+
+async function enviar() {
+  const input = document.getElementById('input');
+  const texto = input.value.trim();
+  if (!texto) return;
+  
+  mensajes.push({ rol: 'usuario', texto });
+  input.value = '';
+  render();
+  
+  try {
+    const res = await fetch(`${API_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensaje: texto })
+    });
+    const data = await res.json();
+    mensajes.push({ rol: 'bot', texto: data.respuesta });
+  } catch {
+    mensajes.push({ rol: 'bot', texto: 'Error. Contactanos por WhatsApp.' });
+  }
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
