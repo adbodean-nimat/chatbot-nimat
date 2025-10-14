@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Chatbot NIMAT</title>
 </head>
 <body>
     <!-- WIDGET CHATBOT NIMAT -->
 <div id="nimat-chat"></div>
 
 <style>
+body {margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial;}
 #nimat-chat { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
 .chat-btn { width: 60px; height: 60px; background: linear-gradient(135deg, #10b981, #059669); 
   border-radius: 50%; border: none; font-size: 28px; cursor: pointer; 
@@ -29,17 +30,18 @@
   border-radius: 20px; font-size: 14px; outline: none; }
 .chat-input button { background: #10b981; color: white; border: none; 
   width: 40px; height: 40px; border-radius: 50%; margin-left: 8px; cursor: pointer; }
+.logo{ width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; background:#fff; font-weight:700 }
 </style>
 
 <script>
-const API_URL = 'https://tu-url.railway.app';
+const API_URL = 'https://chatbot-nimat-backend-production.up.railway.app';
 let abierto = false;
 let mensajes = [{ rol: 'bot', texto: '¡Hola! Soy el asistente de NIMAT. ¿En qué puedo ayudarte?' }];
 
 function render() {
   const root = document.getElementById('nimat-chat');
   if (!abierto) {
-    root.innerHTML = '<button class="chat-btn" onclick="toggle()">💬</button>';
+    root.innerHTML = '<button class="chat-btn" onclick="toggle()"><svg viewBox="0 0 26 20" width="20" height="20" fill="#fff"><path d="M2 5a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H8.83L4.6 20.8A1 1 0 0 1 3 20V5z"/></svg>    <span class="badge" id="bdg" style="display:none">1</span></button>';
     return;
   }
   
@@ -47,7 +49,8 @@ function render() {
     <div class="chat-window">
       <div class="chat-header">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div><h3 style="margin:0">NIMAT</h3><p style="margin:0;font-size:12px">En línea</p></div>
+          <div class="logo"><img src="https://www.nimat.com.ar/icons/icons_0/favicon-32x32.png" alt="NIMAT" style="width:20px;height:20px"/></div>
+          <div style="text-align: center;"><h3 style="margin:0">NIMAT</h3><p style="margin:0;font-size:12px">En línea</p></div>
           <button onclick="toggle()" style="background:none;border:none;color:white;font-size:24px;cursor:pointer">✕</button>
         </div>
       </div>
