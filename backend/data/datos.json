@@ -1,0 +1,138 @@
+{
+  "empresa": {
+    "nombre": "NIMAT",
+    "nombre_completo": "NIMAT - Materiales para la Construcción",
+    "slogan": "Materiales para la construcción",
+    "razon_social": "Prades S.A.",
+    "cuit": "XX-XXXXXXXX-X"
+  },
+  
+  "contacto": {
+    "telefono": {
+      "principal": "+54 0345 4273333",
+      "formateado": "+54 (0345) 4273333",
+      "solo_numeros": "5403454273333"
+    },
+    "whatsapp": {
+      "numero": "+5493454178310",
+      "link": "https://wa.me/543454178310",
+      "mensaje_predeterminado": "Hola, me contacto desde el sitio web de NIMAT"
+    },
+    "email": {
+      "ventas": "ventas@nimat.com.ar",
+      "info": "info@nimat.com.ar",
+      "recursos_humanos": "rrhh@nimat.com.ar"
+    }
+  },
+  
+  "ubicacion": {
+    "direccion": {
+      "calle": "Av. Monseñor Tavella",
+      "numero": "1937",
+      "ciudad": "Concordia",
+      "provincia": "Entre Ríos",
+      "codigo_postal": "3200",
+      "pais": "Argentina",
+      "completa": "Av. Mons. Tavella, Concordia, Entre Ríos, Argentina"
+    },
+    "coordenadas": {
+      "latitud": -31.3935,
+      "longitud": -58.0210,
+      "google_maps": "https://maps.google.com/?q=-31.3935,-58.0210"
+    },
+    "google_maps": {
+      "link": "https://maps.app.goo.gl/h6rNuZoQnkD9nX2a6",
+      "embed": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1079.1319510386609!2d-58.02050303629021!3d-31.373268143005273!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95ade83ae337d351%3A0x928af25f01857cf2!2sNIMAT!5e1!3m2!1ses-419!2sar!4v1760546665854!5m2!1ses-419!2sar",
+      "iframe": "<iframe src='https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1079.1319510386609!2d-58.02050303629021!3d-31.373268143005273!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95ade83ae337d351%3A0x928af25f01857cf2!2sNIMAT!5e1!3m2!1ses-419!2sar!4v1760546665854!5m2!1ses-419!2sar' width='600' height='450' style='border:0;' allowfullscreen='' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>"
+    } 
+  },
+  
+  "horarios": {
+    "lunes_a_viernes": {
+      "apertura": "07:30",
+      "cierre": "19:00",
+      "formateado": "Lunes a Viernes: 7:30 a 19:00 hs"
+    },
+    "sabado": {
+      "apertura": "08:00",
+      "cierre": "12:30",
+      "formateado": "Sábado: 8:00 a 12:30 hs"
+    },
+    "domingo": {
+      "cerrado": true,
+      "formateado": "Domingo: Cerrado"
+    },
+    "descripcion": "Lunes a Viernes de 7:30 a 19:00 hs | Sábados de 8:00 a 12:30 hs"
+  },
+  
+  "redes_sociales": {
+    "facebook": "https://facebook.com/nimatconcordia",
+    "instagram": "https://instagram.com/nimatconcordia",
+    "linkedin": "https://linkedin.com/in/nimat-s-a-07b03b389/",
+    "youtube": "https://youtube.com/@NimatConcordia"
+  },
+  
+  "sitio_web": {
+    "url": "https://www.nimat.com.ar",
+    "ecommerce": "https://www.nimat.com.ar"
+  },
+  
+  "informacion_adicional": {
+    "fundacion": "1987",
+    "experiencia_años": 50,
+    "especialidades": [
+      "Materiales de construcción",
+      "Cerámicas y porcelanatos",
+      "Impermeabilizantes y pinturas",
+      "Cementos y áridos",
+      "Construcción en seco",
+      "Herreria",
+      "Aberturas de obras",
+      "Baños",
+      ""
+    ],
+    "zonas_entrega": [
+      "Concordia",
+      "Zona norte de Entre Ríos",
+      "Zona sur de Entre Ríos",
+      "Centro de Entre Ríos"
+    ]
+  },
+  
+  "metodos_pago": {
+    "efectivo": true,
+    "debito": true,
+    "credito": {
+      "disponible": true,
+      "tarjetas": ["Visa", "Mastercard", "American Express", "Cabal", "Naranja"]
+    },
+    "transferencia": true,
+    "mercado_pago": true,
+    "descripcion": "Efectivo, débito, crédito en 1 cuota sin interés, transferencia, Mercado Pago"
+  },
+  
+  "envios": {
+    "disponible": true,
+    "zona_cobertura": "Concordia y alrededores",
+    "costo_minimo": "Consultar",
+    "retiro_sucursal": {
+      "disponible": true,
+      "gratuito": true
+    }
+  },
+  
+  "chatbot": {
+    "nombre": "Asistente NIMAT",
+    "version": "1.0",
+    "modelo_ia": "GPT-4 Turbo",
+    "idioma": "Español (Argentina)",
+    "disponibilidad": "24/7",
+    "funcionalidades": [
+      "Consulta de productos",
+      "Información de stock y precios",
+      "Asesoramiento técnico",
+      "Generación de presupuestos",
+      "Consultas generales"
+    ]
+  }
+}

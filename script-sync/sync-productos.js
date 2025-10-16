@@ -4,9 +4,41 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const cron = require('node-cron');
 
-const DROPBOX_TOKEN = process.env.DROPBOX_TOKEN ;
 const EXCEL_PATH = process.env.EXCEL_PATH ;
 const OUTPUT_JSON = process.env.OUTPUT_JSON ; 
+
+async function getAccessToken() {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: process.env.DROPBOX_REFRESH_TOKEN,
+  });
+  const auth = Buffer.from(`${process.env.DROPBOX_APP_KEY}:${process.env.DROPBOX_APP_SECRET}`).toString("base64");
+  const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`OAuth token error ${res.status}: ${errText}`);
+  }
+  return res.json(); // { access_token, expires_in, ... } // { access_token, expires_in, ... }
+}
+
+let _cachedAccess = null; // { token, expiresAt }
+async function ensureAccessToken() {
+  const now = Date.now();
+  if (_cachedAccess && _cachedAccess.expiresAt > now + 30_000) {
+    return _cachedAccess.token;
+  }
+  const t = await getAccessToken();
+  _cachedAccess = {
+    token: t.access_token,
+// Si no viene expires_in, usa 1h por defecto
+    expiresAt: now + ((t.expires_in ?? 3600) - 60) * 1000,
+  };
+  return _cachedAccess.token;
+}
 
 function limpiarHtml(texto) {
   if (!texto) return '';
@@ -103,8 +135,8 @@ function construirIndices(productos) {
 async function sincronizarProductos() {
   try {
     console.log('Iniciando sincronización...');
-    
-    const dbx = new Dropbox({ accessToken: DROPBOX_TOKEN });
+    const token = await ensureAccessToken();
+    const dbx = new Dropbox({ accessToken: token });
     const response = await dbx.filesDownload({ path: EXCEL_PATH });
     const buffer = response.result.fileBinary;
     
@@ -156,7 +188,7 @@ async function sincronizarProductos() {
 
 sincronizarProductos();
 
-cron.schedule('0 */2 * * *', () => {
+cron.schedule('2 7-20/2 * * *', () => {
   console.log('Ejecutando sincronización programada...');
   sincronizarProductos();
 });

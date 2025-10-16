@@ -2,10 +2,10 @@
   "name": "nimat-sync-productos",
   "version": "1.0.0",
   "description": "Sincronizador de productos para chatbot NIMAT",
-  "main": "sync-productos.js",
+  "main": "sync-categorias-productos.js",
   "scripts": {
-    "start": "node sync-productos.js",
-    "dev": "nodemon sync-productos.js"
+    "start": "node sync-categorias-productos.js",
+    "dev": "nodemon sync-categorias-productos.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

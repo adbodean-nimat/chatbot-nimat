@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot NIMAT v3</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style type="text/tailwindcss">
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+#messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+#messages-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+  background: #007c3b;
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  #nimat-chatbot > div {
+    width: 100vw !important;
+    height: 100vh !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+</style>
+</head>
+<body>
+    <!-- WIDGET CHATBOT NIMAT CON GENERADOR DE PRESUPUESTOS -->
+<div id="nimat-chatbot"></div>
+
+
+
+<script>
+const API_URL = 'https://chatbot-nimat-backend-production.up.railway.app';
+
+let isOpen = false;
+let messages = [{
+  role: 'bot',
+  text: '¡Hola! Soy el asistente virtual de NIMAT. ¿En qué puedo ayudarte hoy?',
+  time: new Date()
+}];
+let isLoading = false;
+let darkMode = localStorage.getItem('nimat-dark-mode') === 'true' || false;
+
+// Estado del presupuesto
+let presupuestoMode = false;
+let catalogoCompleto = null;
+let productosSeleccionados = [];
+let categoriaFiltro = 'Todas';
+let busquedaTexto = '';
+
+// Cargar catálogo completo
+async function cargarCatalogo() {
+  if (catalogoCompleto) return catalogoCompleto;
+  
+  try {
+    const res = await fetch(`${API_URL}/api/productos`);
+    catalogoCompleto = await res.json();
+    return catalogoCompleto;
+  } catch (error) {
+    console.error('Error al cargar catálogo:', error);
+    return { productos: [] };
+  }
+}
+
+function toggleDarkMode() {
+  darkMode = !darkMode;
+  localStorage.setItem('nimat-dark-mode', darkMode);
+  render();
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function abrirPresupuesto() {
+  presupuestoMode = true;
+  cargarCatalogo();
+  render();
+}
+
+function cerrarPresupuesto() {
+  presupuestoMode = false;
+  render();
+}
+
+function toggleProducto(producto) {
+  const index = productosSeleccionados.findIndex(p => p.sku === producto.sku);
+  if (index > -1) {
+    productosSeleccionados.splice(index, 1);
+  } else {
+    productosSeleccionados.push({ ...producto, cantidad: 1 });
+  }
+  render();
+}
+
+function actualizarCantidad(sku, cantidad) {
+  const prod = productosSeleccionados.find(p => p.sku === sku);
+  if (prod) {
+    prod.cantidad = Math.max(1, parseInt(cantidad) || 1);
+    render();
+  }
+}
+
+function eliminarProducto(sku) {
+  productosSeleccionados = productosSeleccionados.filter(p => p.sku !== sku);
+  render();
+}
+
+function filtrarCatalogo() {
+  if (!catalogoCompleto || !catalogoCompleto.productos) return [];
+  
+  let productos = catalogoCompleto.productos.filter(p => p.stock >= 0);
+  
+  if (categoriaFiltro !== 'Todas') {
+    productos = productos.filter(p => p.categoria_principal === categoriaFiltro);
+  }
+  
+  if (busquedaTexto.trim()) {
+    const busqueda = busquedaTexto.toLowerCase();
+    productos = productos.filter(p => 
+      p.nombre.toLowerCase().includes(busqueda) ||
+      p.keywords.some(k => k.includes(busqueda))
+    );
+  }
+  
+  return productos.slice(0, 50);
+}
+
+function generarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  // Logo NIMAT (texto simple por ahora)
+  doc.setFontSize(24);
+  doc.setTextColor(0, 124, 59);
+  doc.text('NIMAT', 20, 25);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text('Materiales para la construcción', 20, 32);
+  
+  // Línea separadora
+  doc.setDrawColor(0, 124, 59);
+  doc.setLineWidth(0.5);
+  doc.line(20, 38, 190, 38);
+  
+  // Título
+  doc.setFontSize(16);
+  doc.setTextColor(0);
+  doc.text('PRESUPUESTO', 20, 50);
+  
+  // Info del presupuesto
+  doc.setFontSize(10);
+  const fecha = new Date().toLocaleDateString('es-AR');
+  const numero = `PRE-${Date.now().toString().slice(-6)}`;
+  doc.text(`Fecha: ${fecha}`, 20, 60);
+  doc.text(`N°: ${numero}`, 20, 66);
+  
+  // Encabezado de tabla
+  let y = 80;
+  doc.setFillColor(0, 124, 59);
+  doc.rect(20, y, 170, 8, 'F');
+  
+  doc.setTextColor(255);
+  doc.setFontSize(9);
+  doc.text('Producto', 22, y + 5);
+  doc.text('Cant.', 120, y + 5);
+  doc.text('Precio Unit.', 140, y + 5);
+  doc.text('Subtotal', 170, y + 5);
+  
+  // Productos
+  y += 12;
+  doc.setTextColor(0);
+  let total = 0;
+  
+  productosSeleccionados.forEach((prod, index) => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+    
+    const subtotal = prod.precio * prod.cantidad;
+    total += subtotal;
+    
+    // Nombre del producto (truncado si es muy largo)
+    const nombre = prod.nombre.length > 50 
+      ? prod.nombre.substring(0, 47) + '...'
+      : prod.nombre;
+    
+    doc.setFontSize(8);
+    doc.text(nombre, 22, y);
+    doc.text(prod.cantidad.toString(), 125, y);
+    doc.text(`$${prod.precio.toLocaleString('es-AR')}`, 142, y);
+    doc.text(`$${subtotal.toLocaleString('es-AR')}`, 172, y);
+    
+    y += 6;
+    
+    // Línea separadora
+    if (index < productosSeleccionados.length - 1) {
+      doc.setDrawColor(200);
+      doc.setLineWidth(0.1);
+      doc.line(20, y, 190, y);
+      y += 2;
+    }
+  });
+  
+  // Total
+  y += 10;
+  doc.setDrawColor(0, 124, 59);
+  doc.setLineWidth(0.5);
+  doc.line(140, y, 190, y);
+  
+  y += 8;
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  doc.text('TOTAL:', 140, y);
+  doc.text(`$${total.toLocaleString('es-AR')}`, 172, y);
+  
+  // Footer
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(100);
+  doc.text('Concordia, Entre Ríos | WhatsApp: +543454062427', 20, 285);
+  doc.text('www.nimat.com.ar', 20, 290);
+  
+  // Guardar
+  doc.save(`Presupuesto_NIMAT_${numero}.pdf`);
+  
+  // Mensaje de confirmación
+  messages.push({
+    role: 'bot',
+    text: `✅ Presupuesto generado exitosamente!\n\nN° ${numero}\nTotal: $${total.toLocaleString('es-AR')}\n${productosSeleccionados.length} productos incluidos.\n\n¿Necesitás ayuda con algo más?`,
+    time: new Date()
+  });
+  
+  cerrarPresupuesto();
+  productosSeleccionados = [];
+}
+
+function render() {
+  const root = document.getElementById('nimat-chatbot');
+  
+  if (!isOpen) {
+    root.innerHTML = `
+      <button 
+        onclick="toggleChat()"
+        class="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-[#007c3b] to-[#005a2b] rounded-full shadow-2xl hover:shadow-[#007c3b]/50 hover:scale-110 transition-all duration-300 flex items-center justify-center text-3xl z-50 animate-bounce"
+      >
+        💬
+      </button>
+    `;
+    return;
+  }
+  
+  const bgMain = darkMode ? 'bg-gray-900' : 'bg-white';
+  const bgMessages = darkMode ? 'bg-gray-800' : 'bg-gray-50';
+  const textMain = darkMode ? 'text-gray-100' : 'text-gray-800';
+  const textSecondary = darkMode ? 'text-gray-400' : 'text-gray-600';
+  const borderColor = darkMode ? 'border-gray-700' : 'border-gray-200';
+  const msgBotBg = darkMode ? 'bg-gray-700' : 'bg-white';
+  const inputBg = darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800';
+  const inputBorder = darkMode ? 'border-gray-600' : 'border-gray-300';
+  
+  if (presupuestoMode) {
+    // Vista de generador de presupuesto
+    const categorias = catalogoCompleto?.metadata 
+      ? Object.keys(catalogoCompleto.indices.por_categoria)
+      : [];
+    
+    const productosFiltrados = filtrarCatalogo();
+    const totalPresupuesto = productosSeleccionados.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+    
+    root.innerHTML = `
+      <div class="fixed inset-0 ${bgMain} z-50 flex">
+        <!-- Panel de productos seleccionados (izquierda) -->
+        <div class="w-80 ${bgMessages} border-r ${borderColor} flex flex-col">
+          <div class="bg-gradient-to-r from-[#007c3b] to-[#005a2b] p-4">
+            <h3 class="text-white font-bold text-lg">Presupuesto</h3>
+            <p class="text-green-100 text-sm">${productosSeleccionados.length} productos</p>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-4 space-y-2">
+            ${productosSeleccionados.length === 0 ? `
+              <div class="text-center ${textSecondary} py-8">
+                <p class="text-4xl mb-2">📋</p>
+                <p class="text-sm">Aún no hay productos</p>
+                <p class="text-xs mt-1">Selecciona desde el catálogo</p>
+              </div>
+            ` : productosSeleccionados.map(p => `
+              <div class="${msgBotBg} border ${borderColor} rounded-lg p-3">
+                <div class="flex justify-between items-start mb-2">
+                  <p class="text-xs ${textMain} font-semibold flex-1 pr-2">${p.nombre}</p>
+                  <button 
+                    onclick="eliminarProducto('${p.sku}')"
+                    class="text-red-500 hover:text-red-700"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                  <input 
+                    type="number" 
+                    value="${p.cantidad}"
+                    onchange="actualizarCantidad('${p.sku}', this.value)"
+                    class="w-16 px-2 py-1 border ${borderColor} rounded text-sm ${inputBg}"
+                    min="1"
+                  />
+                  <span class="text-xs ${textSecondary}">x $${p.precio.toLocaleString('es-AR')}</span>
+                </div>
+                <p class="text-sm font-bold text-[#007c3b]">$${(p.precio * p.cantidad).toLocaleString('es-AR')}</p>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="p-4 border-t ${borderColor} ${bgMain}">
+            <div class="flex justify-between items-center mb-3">
+              <span class="${textMain} font-bold">TOTAL:</span>
+              <span class="text-xl font-bold text-[#007c3b]">$${totalPresupuesto.toLocaleString('es-AR')}</span>
+            </div>
+            <button
+              onclick="generarPDF()"
+              ${productosSeleccionados.length === 0 ? 'disabled' : ''}
+              class="w-full bg-gradient-to-r from-[#007c3b] to-[#005a2b] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-2"
+            >
+              📄 Generar PDF
+            </button>
+            <button
+              onclick="cerrarPresupuesto()"
+              class="w-full border ${borderColor} ${textMain} py-2 rounded-lg hover:bg-gray-100 transition-all"
+            >
+              Volver al chat
+            </button>
+          </div>
+        </div>
+        
+        <!-- Catálogo de productos (derecha) -->
+        <div class="flex-1 flex flex-col">
+          <div class="p-4 border-b ${borderColor} ${bgMain}">
+            <h3 class="${textMain} font-bold text-lg mb-3">Catálogo de Productos</h3>
+            
+            <!-- Búsqueda -->
+            <input
+              type="text"
+              placeholder="Buscar productos..."
+              value="${busquedaTexto}"
+              oninput="busquedaTexto = this.value; render();"
+              class="w-full px-4 py-2 border ${borderColor} ${inputBg} rounded-lg mb-3 text-sm"
+            />
+            
+            <!-- Filtros por categoría -->
+            <div class="flex flex-wrap gap-2">
+              <button
+                onclick="categoriaFiltro = 'Todas'; render();"
+                class="px-3 py-1 rounded-full text-sm ${categoriaFiltro === 'Todas' ? 'bg-[#007c3b] text-white' : `border ${borderColor} ${textSecondary}`}"
+              >
+                Todas
+              </button>
+              ${categorias.map(cat => `
+                <button
+                  onclick="categoriaFiltro = '${cat}'; render();"
+                  class="px-3 py-1 rounded-full text-sm ${categoriaFiltro === cat ? 'bg-[#007c3b] text-white' : `border ${borderColor} ${textSecondary}`}"
+                >
+                  ${cat}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          
+          <!-- Lista de productos -->
+          <div class="flex-1 overflow-y-auto p-4 ${bgMessages}">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${productosFiltrados.map(p => {
+                const seleccionado = productosSeleccionados.some(ps => ps.sku === p.sku);
+                return `
+                  <div class="${msgBotBg} border ${seleccionado ? 'border-[#007c3b] border-2' : borderColor} rounded-lg p-3 cursor-pointer hover:shadow-lg transition-all"
+                       onclick="toggleProducto(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+                    ${seleccionado ? `
+                      <div class="flex justify-end mb-1">
+                        <span class="bg-[#007c3b] text-white text-xs px-2 py-1 rounded-full">✓ Seleccionado</span>
+                      </div>
+                    ` : ''}
+                    <h4 class="text-sm font-semibold ${textMain} mb-2 line-clamp-2">${p.nombre}</h4>
+                    <p class="text-xs ${textSecondary} mb-2">SKU: ${p.sku}</p>
+                    <div class="flex justify-between items-center">
+                      <span class="text-lg font-bold text-[#007c3b]">$${p.precio.toLocaleString('es-AR')}</span>
+                      <span class="text-xs ${p.stock > 0 ? 'text-green-600' : 'text-red-600'}">
+                        ${p.stock > 0 ? `${p.stock} en stock` : 'Sin stock'}
+                      </span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Vista normal del chat
+  root.innerHTML = `
+    <div class="fixed bottom-6 right-6 w-[400px] h-[600px] ${bgMain} rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden">
+      <div class="bg-gradient-to-r from-[#007c3b] to-[#005a2b] p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl backdrop-blur-sm">
+            <div class="logo"><img src="https://www.nimat.com.ar/icons/icons_0/favicon-32x32.png" alt="NIMAT" style="width:20px;height:20px"/></div>
+          </div>
+          <div>
+            <h3 class="text-white font-bold text-lg">NIMAT</h3>
+            <p class="text-green-100 text-xs flex items-center gap-1">
+              <span class="w-2 h-2 bg-green-300 rounded-full animate-pulse"></span>
+              En línea
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleDarkMode()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+            ${darkMode ? '☀️' : '🌙'}
+          </button>
+          <button onclick="toggleChat()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">✕</button>
+        </div>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto p-4 ${bgMessages} space-y-4" id="messages-container">
+        ${messages.map(msg => `
+          <div class="flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%]">
+              ${msg.role === 'bot' ? '<div class="w-8 h-8 bg-gradient-to-br from-[#007c3b] to-[#005a2b] rounded-full flex items-center justify-center text-white text-sm mb-1">🤖</div>' : ''}
+              <div class="${msg.role === 'user' ? 'bg-gradient-to-br from-[#007c3b] to-[#005a2b] text-white' : `${msgBotBg} ${textMain} border ${borderColor}`} rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
+                <p class="text-sm leading-relaxed whitespace-pre-wrap">${msg.text}</p>
+                ${msg.products && msg.products.length > 0 ? `
+                  <div class="mt-3 space-y-2 border-t ${msg.role === 'user' ? 'border-[#00a04d]' : borderColor} pt-3">
+                    ${msg.products.map(p => `
+                      <div class="${msg.role === 'user' ? 'bg-white/10' : (darkMode ? 'bg-gray-600' : 'bg-gray-50')} rounded-lg p-2 text-xs">
+                        <div class="font-semibold">${p.nombre}</div>
+                        <div class="flex justify-between mt-1">
+                          <span class="font-bold text-[#007c3b]">$${p.precio.toLocaleString('es-AR')}</span>
+                          <span>${p.stock > 0 ? `✓ ${p.stock} unidades` : '⚠️ Sin stock'}</span>
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+              <p class="text-xs ${textSecondary} mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}">${formatTime(msg.time)}</p>
+            </div>
+          </div>
+        `).join('')}
+        ${isLoading ? `
+          <div class="flex justify-start">
+            <div class="max-w-[80%]">
+              <div class="w-8 h-8 bg-gradient-to-br from-[#007c3b] to-[#005a2b] rounded-full flex items-center justify-center mb-1">🤖</div>
+              <div class="${msgBotBg} border ${borderColor} rounded-2xl px-4 py-3">
+                <div class="flex gap-1">
+                  <div class="w-2 h-2 bg-[#007c3b] rounded-full animate-bounce"></div>
+                  <div class="w-2 h-2 bg-[#007c3b] rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                  <div class="w-2 h-2 bg-[#007c3b] rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+      
+      <div class="p-4 ${bgMain} border-t ${borderColor}">
+        <button
+          onclick="abrirPresupuesto()"
+          class="w-full mb-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
+        >
+          📋 Solicitar Presupuesto
+        </button>
+        <div class="flex gap-2">
+          <input
+            id="chat-input"
+            type="text"
+            placeholder="Escribe tu consulta..."
+            class="flex-1 px-4 py-3 border ${inputBorder} ${inputBg} rounded-full focus:outline-none focus:ring-2 focus:ring-[#007c3b] text-sm"
+            onkeypress="if(event.key==='Enter') sendMessage();"
+            ${isLoading ? 'disabled' : ''}
+          />
+          <button
+            onclick="sendMessage()"
+            class="bg-gradient-to-br from-[#007c3b] to-[#005a2b] text-white rounded-full w-12 h-12 flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-50"
+            ${isLoading ? 'disabled' : ''}
+          >
+            ➤
+          </button>
+        </div>
+        <p class="text-xs ${textSecondary} mt-2 text-center">WhatsApp: +543454062427</p>
+      </div>
+    </div>
+  `;
+  
+  setTimeout(() => {
+    const container = document.getElementById('messages-container');
+    if (container) container.scrollTop = container.scrollHeight;
+  }, 100);
+}
+
+function toggleChat() {
+  isOpen = !isOpen;
+  render();
+  if (isOpen) {
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
+  
+  messages.push({ role: 'user', text: text, time: new Date() });
+  input.value = '';
+  isLoading = true;
+  render();
+  
+  try {
+    const response = await fetch(`${API_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mensaje: text,
+        historial: messages.slice(-6).map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.text
+        }))
+      })
+    });
+    
+    if (!response.ok) throw new Error('Error en respuesta');
+    
+    const data = await response.json();
+    messages.push({
+      role: 'bot',
+      text: data.respuesta,
+      products: data.productos || [],
+      time: new Date()
+    });
+  } catch (error) {
+    messages.push({
+      role: 'bot',
+      text: '⚠️ Error al conectar. Contactanos por WhatsApp al +543454175310',
+      time: new Date()
+    });
+  } finally {
+    isLoading = false;
+    render();
+  }
+}
+
+render();
+</script>
+</body>
+</html>
