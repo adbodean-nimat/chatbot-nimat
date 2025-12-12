@@ -4,13 +4,14 @@
     "nombre_completo": "NIMAT - Materiales para la Construcción",
     "slogan": "Materiales para la construcción",
     "razon_social": "Prades S.A.",
-    "cuit": "XX-XXXXXXXX-X"
+    "cuit": "XX-XXXXXXXX-X",
+    "historia": "Las empresas en general, y aún más las familiares, dependen en su trayectoria del componente humano de las mismas. Así como el ser humano nace, crece, prospera y muere, las empresas también están, como humanas que son, sujetas a las contingencias de nacimiento, desarrollo, prosperidad y declinación que las lleva a su prescripción final. Así fue que la firma ANDRÉS ECHEVESTE, fundada por el año 1923 y que ocupó un sector muy importante de los corralones de materiales de construcción, durante 50 años desde su sede de la calle Entre Ríos 253, se extinguió a fines de 1973. Los acontecimientos se desarrollaron de tal manera en aquel año que el Sr. Enrique Joaquín Niez, que perteneció a ANDRÉS ECHEVESTE por más de 20 años, se hizo cargo del fondo de comercio de la misma, iniciando de esta forma su vida comercial como NIMAT, el 01 de enero de 1974. En la apertura, su nueva empresa funcionó en el local de su antecesora, de la calle Entre Ríos. Más adelante, en 1982, ya acompañado por sus hijos, adquirió la propiedad sita en calle Monseñor Tavella y Dr. Aldá. Desde entonces y hasta 1992 desplegó toda su actividad desde estas dos direcciones. En 1993, para adaptarse a las circunstancias de entonces, cerró el viejo local de la calle Entre Ríos y concentró toda la actividad en el local de la calle Monseñor Tavella. Pero la tenacidad y el esfuerzo de los integrantes de NIMAT para conformar una empresa siempre joven, focalizada en lograr la satisfacción de los clientes, adaptable a los cambios de los tiempos, acompañados por la lealtad y capacidad de su personal, han hecho que hoy esta empresa ocupe una franja muy importante en la provisión de materiales de construcción en la ciudad de Concordia y región de influencia."
   },
   
   "contacto": {
     "telefono": {
-      "principal": "+54 0345 4273333",
-      "formateado": "+54 (0345) 4273333",
+      "principal": "+54 0345 427-3333",
+      "formateado": "+54 (0345) 427-3333",
       "solo_numeros": "5403454273333"
     },
     "whatsapp": {
@@ -33,12 +34,7 @@
       "provincia": "Entre Ríos",
       "codigo_postal": "3200",
       "pais": "Argentina",
-      "completa": "Av. Mons. Tavella, Concordia, Entre Ríos, Argentina"
-    },
-    "coordenadas": {
-      "latitud": -31.3935,
-      "longitud": -58.0210,
-      "google_maps": "https://maps.google.com/?q=-31.3935,-58.0210"
+      "completa": "Av. Mons. Tavella 1937, Concordia, Entre Ríos, Argentina"
     },
     "google_maps": {
       "link": "https://maps.app.goo.gl/h6rNuZoQnkD9nX2a6",
@@ -124,7 +120,7 @@
   "chatbot": {
     "nombre": "Asistente NIMAT",
     "version": "1.0",
-    "modelo_ia": "GPT-4 Turbo",
+    "modelo_ia": "GPT-4o-mini",
     "idioma": "Español (Argentina)",
     "disponibilidad": "24/7",
     "funcionalidades": [

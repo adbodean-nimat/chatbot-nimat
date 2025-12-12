@@ -4,14 +4,17 @@
   "description": "Sincronizador de productos para chatbot NIMAT",
   "main": "sync-categorias-productos.js",
   "scripts": {
-    "start": "node sync-categorias-productos.js",
-    "dev": "nodemon sync-categorias-productos.js"
+    "start": "node sync-categorias-productos-urls.js",
+    "dev": "nodemon sync-categorias-productos.js",
+    "update": "node sync-openai.js"
   },
   "dependencies": {
+    "@toon-format/toon": "^1.0.0",
     "dotenv": "^17.2.3",
     "dropbox": "^10.34.0",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
+    "openai": "^6.8.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

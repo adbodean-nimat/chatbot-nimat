@@ -161,10 +161,18 @@ function generarRespuestaAutomatica(mensaje) {
   }
   
   // Envíos
-  if (msgLower.includes('envio') || msgLower.includes('envío') || msgLower.includes('delivery') || msgLower.includes('entregan')) {
+  if (msgLower.includes('envio') || msgLower.includes('envío') || msgLower.includes('delivery') || msgLower.includes('entregan') || msgLower.includes('entrega')) {
     return {
       automatica: true,
       respuesta: `🚚 Realizamos envíos en ${datosEmpresa.envios.zona_cobertura}\n✓ Retiro gratuito en sucursal\n\n¿Necesitás cotizar un envío específico?`
+    };
+  }
+
+  // Historia de la Empresa
+  if (msgLower.includes('historia')) {
+    return {
+      automatica: true,
+      respuesta: `${datosEmpresa.empresa.historia}`
     };
   }
   
@@ -198,21 +206,31 @@ ${datosEmpresa.envios.retiro_sucursal.disponible ? '✓ Retiro gratuito en sucur
 ESPECIALIDADES:
 ${datosEmpresa.informacion_adicional.especialidades.join(', ')}
 
-TU ROL:
-- Sos un vendedor experto y amable de ${datosEmpresa.empresa.nombre}
-- Conocés todos los productos del catálogo
-- Ayudás a los clientes con consultas de stock, precios y asesoramiento técnico
-- Tono conversacional argentino (tuteá al cliente)
+HISTORIA DE LA EMPRESA:
+Las empresas en general, y aún más las familiares, dependen en su trayectoria del componente humano de las mismas. Así como el ser humano nace, crece, prospera y muere, las empresas también están, como humanas que son, sujetas a las contingencias de nacimiento, desarrollo, prosperidad y declinación que las lleva a su prescripción final. 
+Así fue que la firma ANDRÉS ECHEVESTE, fundada por el año 1923 y que ocupó un sector muy importante de los corralones de materiales de construcción, durante 50 años desde su sede de la calle Entre Ríos 253, se extinguió a fines de 1973.
+Los acontecimientos se desarrollaron de tal manera en aquel año que el Sr. Enrique Joaquín Niez, que perteneció a ANDRÉS ECHEVESTE por más de 20 años, se hizo cargo del fondo de comercio de la misma, iniciando de esta forma su vida comercial como NIMAT, el 01 de enero de 1974. 
+En la apertura, su nueva empresa funcionó en el local de su antecesora, de la calle Entre Ríos. Más adelante, en 1982, ya acompañado por sus hijos, adquirió la propiedad sita en calle Monseñor Tavella y Dr. Aldá. Desde entonces y hasta 1992 desplegó toda su actividad desde estas dos direcciones. En 1993, para adaptarse a las circunstancias de entonces, cerró el viejo local de la calle Entre Ríos y concentró toda la actividad en el local de la calle Monseñor Tavella. 
+Pero la tenacidad y el esfuerzo de los integrantes de NIMAT para conformar una empresa siempre joven, focalizada en lograr la satisfacción de los clientes, adaptable a los cambios de los tiempos, acompañados por la lealtad y capacidad de su personal, han hecho que hoy esta empresa ocupe una franja muy importante en la provisión de materiales de construcción en la ciudad de Concordia y región de influencia.
 
-REGLAS CRÍTICAS:
-1. SIEMPRE mencioná los PRECIOS que te doy en el catálogo
-2. SIEMPRE mencioná el STOCK disponible
-3. Si te paso productos, USÁ ESA INFORMACIÓN
-4. Sé específico con los números (precios, stock, medidas)
-5. Para consultas complejas o presupuestos grandes, sugerí contactar por WhatsApp
+Nimat y la IA:
+Nimat se encuentra investigando en la optimización de sus procesos internos y utiliza como herramienta la IA.
+Consultas, solicitud de pedidos y atención al cliente:
+- Teléfono: (0345) 427-3333
+- WhatsApp: +54 9 345 417 8310 / +54 9 345 403 7669 
 
-CONTACTO RÁPIDO:
-Para consultas urgentes: ${datosEmpresa.contacto.whatsapp.link}`;
+En los siguientes horarios:
+- Lunes a Viernes: 07.30 a 19.00hs.
+- Sábados: 08 a 12.30 hs.
+
+También puedes enviarnos un e-mail a info@nimat.com.ar
+
+ó seguinos en nuestras redes: Facebook & Instagram
+
+Contamos con un Outlet en nuestra tienda https://www.nimat.com.ar/outlet
+
+Contamos con Estacionamiento propio.
+`;
 
   // Contexto de productos
   const contextoProductos = productos.length > 0
@@ -236,7 +254,7 @@ Para consultas urgentes: ${datosEmpresa.contacto.whatsapp.link}`;
   
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini',
       messages: mensajes,
       temperature: 0.7,
       max_tokens: 500
@@ -289,7 +307,7 @@ router.post('/chat', async (req, res) => {
     
     res.json({
       respuesta: respuesta,
-      productos: productosRelevantes.slice(0, 3), // Top 3 para mostrar
+      // productos: productosRelevantes.slice(0, 3), // Top 3 para mostrar
       timestamp: new Date().toISOString()
     });
     
