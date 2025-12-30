@@ -1,16 +1,18 @@
 // sync-categorias-productos.js
 // Script para sincronizar categorías desde Excel y generar JSON completo
-require('dotenv').config();
-const Dropbox = require('dropbox').Dropbox;
-const xlsx = require('xlsx');
-const fs = require('fs');
-const { encode } = require('@toon-format/toon')
+import dotenv from 'dotenv';
+import { Dropbox } from 'dropbox';
+import xlsx from 'xlsx';
+import fs from 'fs';
+import { encode } from '@toon-format/toon'
+
+dotenv.config();
 
 const EXCEL_PRODUCTOS = process.env.EXCEL_PRODUCTOS_PATH
 const EXCEL_CATEGORIAS = process.env.EXCEL_CATEGORIAS_PATH
 const EXCEL_URLS = process.env.EXCEL_URLS_PATH
 const OUTPUT_JSON = process.env.OUTPUT_JSON
-const OUTPUT_TOON = process.env.OUTPUT_TOON
+const OUTPUT_TOON = process.env.OUTPUT_TOON 
 
 async function getAccessToken() {
   const body = new URLSearchParams({
@@ -106,6 +108,75 @@ function parsearCategorias(categoriesStr) {
     .filter(item => !isNaN(item.id));
 }
 
+// --- Helper: normalización y tokenización para keywords (búsqueda robusta) ---
+function normalizarTexto(texto = '') {
+  return String(texto)
+    .toLowerCase()
+    .replace(/×/g, 'x')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // quitar acentos
+    .replace(/[“”"']/g, '') // comillas
+    .replace(/[^a-z0-9\/\.\-\sx]/g, ' ') // dejar letras, números y separadores útiles
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenizar(texto) {
+  const norm = normalizarTexto(texto);
+  if (!norm) return [];
+  const tokens = new Set();
+
+  for (const raw of norm.split(' ')) {
+    if (!raw) continue;
+
+    // Conservar tokens con números aunque sean cortos (ej: 6m, 1/2, 8mm)
+    if (raw.length >= 3 || /\d/.test(raw)) {
+      tokens.add(raw);
+    }
+
+    // Dividir medidas tipo 31x60 o 0.60x0.40
+    if (raw.includes('x')) {
+      const parts = raw.split('x').filter(Boolean);
+      if (parts.length >= 2) {
+        parts.forEach(p => {
+          tokens.add(p);
+
+          // Variante sin puntos (0.60 -> 060)
+          const sinPuntos = p.replace(/\./g, '');
+          if (sinPuntos && sinPuntos !== p) tokens.add(sinPuntos);
+
+          // Variante sin ceros iniciales (060 -> 60)
+          const sinCeros = p.replace(/^0+/, '');
+          if (sinCeros && sinCeros !== p) tokens.add(sinCeros);
+        });
+      }
+    }
+
+    // Quitar punto final (kg. -> kg)
+    if (raw.endsWith('.')) tokens.add(raw.slice(0, -1));
+
+    // Singular simple (chapas -> chapa) evitando "gris" (y similares)
+    if (raw.endsWith('s') && raw.length > 3 && !raw.endsWith('is')) {
+      tokens.add(raw.slice(0, -1));
+    }
+
+    // Normalizar porcellanato(s) -> porcelanato(s)
+    if (raw.startsWith('porcellanat')) {
+      tokens.add(raw.replace('porcellanat', 'porcelanat'));
+    }
+
+    // Zincalum / Cincalum (variantes comunes)
+    if (raw.includes('cincalum')) tokens.add(raw.replace('cincalum', 'zincalum'));
+    if (raw.includes('zincalum')) tokens.add(raw.replace('zincalum', 'cincalum'));
+  }
+
+  return Array.from(tokens);
+}
+
+function mergeTokens(set, ...textos) {
+  textos.forEach(t => tokenizar(t).forEach(tok => set.add(tok)));
+}
+
 // Función para enriquecer productos con info de categorías
 function enriquecerProductos(productos, categoriasMap) {
   return productos.map(prod => {
@@ -186,7 +257,7 @@ function crearIndicesCategorias(productos, arbolCategorias) {
   return indices;
 }
 
-async function sincronizarCompleto() {
+export async function sincronizarCompleto() {
   try {
     console.log('🚀 Iniciando sincronización completa...\n');
     const token = await ensureAccessToken();
@@ -230,6 +301,7 @@ async function sincronizarCompleto() {
       const sku = (row.Sku || row.SKU || '').trim();
       if (sku) {
         urlsMap[sku] = {
+          id: row.Id || '',
           url: row.url || '',
           imageUrl: row.imageUrl || ''
         };
@@ -242,12 +314,12 @@ async function sincronizarCompleto() {
     console.log('\n🔄 Procesando productos...');
     const productosBase = productosRaw
       .filter(row => row.Published === 'TRUE' && row.VisibleIndividually === 'TRUE')
-      .map((row, idx) => {
+      .map((row) => {
         const sku = (row.SKU || '').trim();
-        const urlData = urlsMap[sku] || { url: '', imageUrl: '' };
+        const urlData = urlsMap[sku] || { id: '', url: '', imageUrl: '' };
         
         return {
-          id: idx,
+          id: urlData.id,
           sku: sku,
           nombre: row.Name || '',
           descripcion_corta: (row.ShortDescription || '').replace(/<[^>]+>/g, ''),
@@ -268,19 +340,29 @@ async function sincronizarCompleto() {
     console.log('✨ Enriqueciendo productos con categorías...');
     const productosEnriquecidos = enriquecerProductos(productosBase, mapa);
     
-    // 6. Generar keywords
+    // 6. Generar keywords (robusto y útil para búsquedas vagas)
+// Incluye: nombre, marca y TODAS las rutas de categorías (root + rutas completas)
     productosEnriquecidos.forEach(p => {
-      const keywords = new Set();
-      [p.nombre, p.categoria_principal, p.marca].forEach(texto => {
-        if (texto) {
-          texto.toLowerCase().split(/\s+/)
-            .filter(palabra => palabra.length > 2)
-            .forEach(palabra => keywords.add(palabra));
-        }
-      });
-      p.keywords = Array.from(keywords);
+      const kw = new Set();
+
+      // Campos base
+      mergeTokens(kw, p.nombre, p.marca, p.categoria_principal, p.ruta_categoria);
+
+      // Todas las categorías (para capturar root tipo "Techos", "Aberturas", etc.)
+      if (Array.isArray(p.categorias_completas)) {
+        p.categorias_completas.forEach(c => {
+          mergeTokens(kw, c.nombre, c.ruta);
+        });
+      }
+
+      // Descripción corta (si aporta contenido; puede estar vacía)
+      if (p.descripcion_corta) {
+        mergeTokens(kw, p.descripcion_corta);
+      }
+
+      p.keywords = Array.from(kw);
     });
-    
+
     // 7. Crear índices
     console.log('📑 Creando índices...');
     const indicesCategorias = crearIndicesCategorias(productosEnriquecidos, arbol);
@@ -362,15 +444,15 @@ function elegirMejorCategoria(data) {
     }
 
 // PLAN B: Si no hay array, usamos el campo plano 'ruta_categoria' si existe
-} else if (rawData.ruta_categoria) {
-    categoriaGanadora = rawData.ruta_categoria;
+} else if (data.ruta_categoria) {
+    categoriaGanadora = data.ruta_categoria;
     // Usamos la URL de categoría que ya viene en el root
-    if (rawData.url_categoria) urlCategoriaGanadora = rawData.url_categoria;
+    if (data.url_categoria) urlCategoriaGanadora = data.url_categoria;
 
 // PLAN C: Usamos la 'categoria_principal' como último recurso
-} else if (rawData.categoria_principal) {
-    categoriaGanadora = rawData.categoria_principal;
-    if (rawData.url_categoria) urlCategoriaGanadora = rawData.url_categoria;
+} else if (data.categoria_principal) {
+    categoriaGanadora = data.categoria_principal;
+    if (data.url_categoria) urlCategoriaGanadora = data.url_categoria;
 }
 return categoriaGanadora
     } 
@@ -394,15 +476,15 @@ function elegirMejorUrlCategoria(data) {
     }
 
 // PLAN B: Si no hay array, usamos el campo plano 'ruta_categoria' si existe
-} else if (rawData.ruta_categoria) {
-    categoriaGanadora = rawData.ruta_categoria;
+} else if (data.ruta_categoria) {
+    categoriaGanadora = data.ruta_categoria;
     // Usamos la URL de categoría que ya viene en el root
-    if (rawData.url_categoria) urlCategoriaGanadora = rawData.url_categoria;
+    if (data.url_categoria) urlCategoriaGanadora = data.url_categoria;
 
 // PLAN C: Usamos la 'categoria_principal' como último recurso
-} else if (rawData.categoria_principal) {
-    categoriaGanadora = rawData.categoria_principal;
-    if (rawData.url_categoria) urlCategoriaGanadora = rawData.url_categoria;
+} else if (data.categoria_principal) {
+    categoriaGanadora = data.categoria_principal;
+    if (data.url_categoria) urlCategoriaGanadora = data.url_categoria;
 }
 return urlCategoriaGanadora
     } 
@@ -415,35 +497,36 @@ const productosLimpios = rawData
     // 1. Resolvemos la categoría antes de crear el objeto
     const mejorCategoria = elegirMejorCategoria(p); // p.categorias puede ser array o string
     const mejorUrlCategoria = elegirMejorUrlCategoria(p)
-    // 2. Extraemos palabras clave de esa categoría para ayudar al buscador
-    // Ej: de "Aberturas > Ventanas" sacamos "aberturas, ventanas"
-    const keywordsCategoria = mejorCategoria
-      .replace(/>/g, ' ') // Cambiar > por espacio
-      .split(' ')
-      .filter(w => w.length > 3) // Filtrar conectores cortos
-      .join(', ');
+    // 2. Categoría raíz (para filtros en la app y mejor desambiguación)
+    const categoriaRoot = (mejorCategoria || '').split(' > ')[0] || 'General';
+
+    // 3. Keywords finales (fusionamos lo precomputado + categoría elegida)
+    const kwFinal = new Set(Array.isArray(p.keywords) ? p.keywords : []);
+    mergeTokens(kwFinal, p.nombre, p.marca, mejorCategoria, categoriaRoot);
+
+    const keywordsFinalStr = Array.from(kwFinal).join(',');
 
     return {
+      id: p.id,
+      activo: p.activo,
       sku: p.sku,
       nombre: p.nombre.trim(),
       marca: p.marca,
-      
       // AQUI VA TU DUDA RESUELTA:
       categoria: mejorCategoria, // "Aberturas > Ventanas > Aluminio"
-      
-      precio: p.precio,
-      stock: p.stock > 0, 
-      url: p.url,
-      
+      categoria_root: categoriaRoot,
       // Importante: La URL de categoría debe coincidir con la categoría elegida
       // (Asumiendo que tenés ese dato, sino usá la genérica)
       url_categoria: mejorUrlCategoria,
+      precio: p.precio,
+      stock: p.stock > 0, 
+      url: p.url,
+      imageUrl: p.imageUrl,
+      descripcion_corta: p.descripcion_corta.trim(),
+      peso_kg: p.peso_kg,
       
-      // La URL de subcategoria
-      //url_subcategoria: mejorUrlCategoria,
-
-      // Sumamos la categoría a las keywords para potenciar la búsqueda
-      keywords: [p.keywords].join(", ").toLowerCase()
+      // Keywords para búsqueda (coma-separado, sin acentos)
+      keywords: keywordsFinalStr
     };
   });
 
@@ -451,7 +534,7 @@ const productosLimpios = rawData
     fs.writeFileSync(OUTPUT_JSON, JSON.stringify(productosLimpios, null, 2), 'utf8');
     fs.writeFileSync(OUTPUT_TOON, catalogoCompletoToTOON)
     // Ver productos arriba
-    console.log(catalogoCompleto.productos[0])
+    //console.log(catalogoCompleto.productos[0])
     // 10. Estadísticas finales
     console.log('\n✅ SINCRONIZACIÓN COMPLETA\n');
     console.log('📊 Estadísticas:');
@@ -460,16 +543,16 @@ const productosLimpios = rawData
     console.log(`   • Categorías activas: ${catalogoCompleto.metadata.total_categorias}`);
     console.log(`   • Categorías principales: ${catalogoCompleto.metadata.categorias_principales}`);
     console.log(`   • Marcas: ${catalogoCompleto.metadata.marcas_total}`);
-    console.log(`\n💾 Archivo generado: ${OUTPUT_JSON}`);
-    console.log(`💾 Archivo generado: ${OUTPUT_TOON}`);
-    console.log(`📦 Tamaño JSON: ${(fs.statSync(OUTPUT_JSON).size / 1024).toFixed(2)} KB`);
-    console.log(`📦 Tamaño TOON: ${(fs.statSync(OUTPUT_TOON).size / 1024).toFixed(2)} KB\n`);
+    console.log(`\n💾 Archivo generado: ${OUTPUT_JSON} (${(fs.statSync(OUTPUT_JSON).size / 1024).toFixed(2)} KB)` );
+    console.log(`💾 Archivo generado: ${OUTPUT_TOON} (${(fs.statSync(OUTPUT_TOON).size / 1024).toFixed(2)} KB)\n`);
+    //console.log(`📦 Tamaño JSON: ${(fs.statSync(OUTPUT_JSON).size / 1024).toFixed(2)} KB`);
+    //console.log(`📦 Tamaño TOON: ${(fs.statSync(OUTPUT_TOON).size / 1024).toFixed(2)} KB\n`);
     
     // Mostrar algunas categorías principales
-    console.log('🌳 Categorías principales:');
+    /* console.log('🌳 Categorías principales:');
     arbol.slice(0, 5).forEach(cat => {
       console.log(`   • ${cat.nombre} (${cat.hijos.length} subcategorías)`);
-    });
+    }); */
     
   } catch (error) {
     console.error('\n❌ ERROR:', error.message);

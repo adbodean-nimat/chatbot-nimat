@@ -1,8 +1,14 @@
-require('dotenv').config();
+import dotenv from 'dotenv'
+dotenv.config();
+import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
+import OpenAI from 'openai'
+
+/* require('dotenv').config();
 const fs = require("node:fs")
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
-const OpenAI = require("openai");
+const OpenAI = require("openai"); */
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

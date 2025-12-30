@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "Sincronizador de productos para chatbot NIMAT",
   "main": "sync-categorias-productos.js",
+  "type": "module",
   "scripts": {
     "start": "node sync-categorias-productos-urls.js",
     "dev": "nodemon sync-categorias-productos.js",
+    "test": "node sync-productos-cateogorias.v2.js",
     "update": "node sync-openai.js"
   },
   "dependencies": {
